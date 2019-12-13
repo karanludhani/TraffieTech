@@ -1,0 +1,70 @@
+from imageai.Detection import ObjectDetection
+import os
+import urllib.request
+import cv2
+import numpy as np
+import serial 
+
+#url = 'http://192.168.43.1:8080/shot.jpg'
+url = 'http://192.168.1.10:8080/shot.jpg'
+url2 = 'C:/Users/User/Desktop/object-detection'
+execution_path = 'C:/Users/User/Desktop/object-detection'
+#cam = cv2.VideoCapture(0)
+ser = serial.Serial('com3',9600)  #Create Serial port object called arduinoSerialData
+print (ser.readline())               #read the serial data and print it as line
+print ("Enter 1 to ON LED and 0 to OFF LED")
+
+
+#cv2.namedWindow("test")
+
+img_counter = 0
+object_count = 0
+
+while True:
+    cam = urllib.request.urlopen(url)
+    imgNp = np.array(bytearray(cam.read()), dtype=np.uint8)
+    img = cv2.imdecode(imgNp, -1)
+    cv2.imshow('temp',cv2.resize(img,(600,400)))
+#   ret, frame = cam.read()
+#   cv2.imshow("test", frame)
+    if not img.all:
+        break
+    k = cv2.waitKey(10)
+
+    if k%256 == 27:
+        # ESC pressed 
+        print("Escape hit, closing...")
+        break
+    elif k%256 == 32:
+        # SPACE pressed
+        img_name = 'C:/Users/User/Desktop/object-detection/opencv_frame_{}.png'
+        cv2.imwrite(img_name,cv2.resize(img,(600,400)) )
+        print("{} written!".format(img_name))
+        img_counter += 1
+detector = ObjectDetection()
+detector.setModelTypeAsRetinaNet()
+detector.setModelPath( os.path.join(execution_path , "resnet50_coco_best_v2.0.1.h5"))
+detector.loadModel()
+detections = detector.detectObjectsFromImage(input_image=os.path.join(url2,'opencv_frame_{}.png'), output_image_path=os.path.join(url2 , 'imagenew5.png'))
+        
+cam.close()
+
+cv2.destroyAllWindows()
+for eachObject in detections:
+    if eachObject["name"] == 'person':
+        object_count += 1
+        print(eachObject["name"] , " : " , eachObject["percentage_probability"] )
+        print("{} number".format(object_count))
+        
+    else: 
+        print("list not given") 
+        
+if object_count >=2:
+    print("trafficload")
+    ser.write('1'.encode())             #send 1 to arduino
+    print ("LED ON")
+    
+else :
+    ser.write('0'.encode())             #send 0 to arduino 
+    print ("LED OFF")
+                                      
